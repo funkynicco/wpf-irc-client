@@ -1,0 +1,6 @@
+#gitignore
+
+.vs/
+
+IrcClient/bin/
+IrcClient/obj/
