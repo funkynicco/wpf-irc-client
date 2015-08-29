@@ -55,7 +55,7 @@ namespace IrcClient.Network
             if (pid.Content.Length == 0)
                 return;
 
-            var channelName = pid.Content.Substring(1);
+            var channelName = pid.Content;
             if (channelName.Contains(' '))
                 channelName = channelName.Substring(0, channelName.IndexOf(' '));
 
