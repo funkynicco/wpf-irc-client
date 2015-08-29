@@ -1,5 +1,6 @@
 ﻿using IrcClient.IRC;
 using IrcClient.Network;
+using Microsoft.Win32;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -23,7 +24,11 @@ namespace IrcClient
     /// </summary>
     public partial class MainWindow : Window
     {
-        private readonly IrcNetworkClient _client = new IrcNetworkClient("Phoenix");
+        private readonly IrcNetworkClient _client = new IrcNetworkClient(Configuration.Nick);
+        private readonly Queue<string> _joinChannelsQueue = new Queue<string>();
+        private bool _isJoiningChannel = false;
+        private bool _isFullyConnected = false;
+        private int _nextJoinTick = 0;
 
         public MainWindow()
         {
@@ -31,14 +36,50 @@ namespace IrcClient
 
             RegisterIrcEvents();
 
+            // add channels to the join channel queue
+            if (Configuration.AutoJoinSavedChannels)
+            {
+                using (var key = Registry.CurrentUser.OpenSubKey(Configuration.RegistryKey + @"\Channels"))
+                {
+                    if (key != null)
+                    {
+                        foreach (var channelName in key.GetSubKeyNames())
+                        {
+                            using (var channelKey = key.OpenSubKey(channelName))
+                            {
+                                if (channelKey != null)
+                                {
+                                    var disabled = (int)channelKey.GetValue("Disabled", 0) != 0;
+                                    if (!disabled)
+                                        _joinChannelsQueue.Enqueue(channelName);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
             Loaded += (sender, e) =>
             {
-                _client.Connect("candice.local", 6667);
+                _client.Connect(Configuration.Address, Configuration.Port);
 
                 new DispatcherTimer() { Interval = TimeSpan.FromMilliseconds(100), IsEnabled = true }.Tick += (_sender, _e) =>
                         {
                             (_sender as DispatcherTimer).IsEnabled = false;
                             _client.Process();
+
+                            var tick = Environment.TickCount;
+
+                            // check joining queue
+                            if (tick >= _nextJoinTick &&
+                                _isFullyConnected &&
+                                !_isJoiningChannel &&
+                                _joinChannelsQueue.Count > 0)
+                            {
+                                _isJoiningChannel = true;
+                                _client.SendJoinChannel(_joinChannelsQueue.Peek());
+                            }
+
                             (_sender as DispatcherTimer).IsEnabled = true;
                         };
             };
@@ -103,7 +144,16 @@ namespace IrcClient
                 if (content.Length == 0)
                     return;
 
-                _client.SendJoinChannel(content);
+                //_client.SendJoinChannel(content);
+                _joinChannelsQueue.Enqueue(content);
+            }
+            else if (command == "clear")
+            {
+                if (ui_TabControl.SelectedItem != null)
+                {
+                    var rtb = (RichTextBox)((TabItem)ui_TabControl.SelectedItem).Content;
+                    rtb.Document.Blocks.Clear();
+                }
             }
         }
 
@@ -124,7 +174,8 @@ namespace IrcClient
             _client.RegisterCallback<ConnectedToServerEvent>("ConnectedToServer", () =>
                 {
                     // we can now join channels
-                    _client.SendJoinChannel("#test");
+                    _nextJoinTick = Environment.TickCount + 1000;
+                    _isFullyConnected = true;
                 });
 
             _client.RegisterCallback<MeJoinedChannelEvent>("MeJoinedChannel", (channel) =>
@@ -150,6 +201,15 @@ namespace IrcClient
 
                     //ui_UserList.SelectedIndex = ui_UserList.Items.Count - 1;
                     ui_TabControl.SelectedIndex = ui_TabControl.Items.Count - 1;
+
+                    if (_joinChannelsQueue.Count > 0 &&
+                        _isJoiningChannel &&
+                        channel.Name == _joinChannelsQueue.Peek())
+                    {
+                        _nextJoinTick = Environment.TickCount + 1000; // give it 1 second at least between joining channels
+                        _joinChannelsQueue.Dequeue();
+                        _isJoiningChannel = false; // process next
+                    }
                 });
 
             _client.RegisterCallback<MeLeftChannelEvent>("MeLeftChannel", (channel) =>
@@ -202,7 +262,7 @@ namespace IrcClient
 
             // #1585b5
             Brush nameColor = new SolidColorBrush(Color.FromArgb(0xff, 0x15, 0x85, 0xb5)); ;
-            if (AccessLevelHelper.GetNick(user.Nick) == Configuration.MyNick)
+            if (AccessLevelHelper.GetNick(user.Nick) == Configuration.Nick)
                 nameColor = new SolidColorBrush(Colors.Orange);
 
             if (flowDocument.Blocks.Count > 0)

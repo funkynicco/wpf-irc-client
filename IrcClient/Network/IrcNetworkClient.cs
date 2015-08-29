@@ -104,6 +104,9 @@ namespace IrcClient.Network
                     }
                 }
             }
+
+            if (data.Length > 0)
+                _buffer.Append(data);
         }
 
         public int Send(string data)

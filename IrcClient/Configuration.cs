@@ -6,7 +6,7 @@ namespace IrcClient
 {
     public static class Configuration
     {
-        private const string RegistryKey = @"Software\nProg\WpfIrcClient";
+        public const string RegistryKey = @"Software\nProg\WpfIrcClient";
 
         #region Registry Functions
         private static Dictionary<string, object> _cache = new Dictionary<string, object>();
@@ -131,15 +131,39 @@ namespace IrcClient
             }
         }
 
-        public static string MyNick
+        public static string Nick
         {
             get
             {
-                return ReadString("MyNick");
+                return ReadString("Nick", "Phoenix");
             }
             set
             {
-                WriteString("MyNick", value);
+                WriteString("Nick", value);
+            }
+        }
+
+        public static string Address
+        {
+            get { return ReadString("Address", "irc.freenode.net"); }
+            set { WriteString("Address", value); }
+        }
+
+        public static int Port
+        {
+            get { return ReadInteger("Port", 6667); }
+            set { WriteInteger("Port", value); }
+        }
+
+        public static bool AutoJoinSavedChannels
+        {
+            get
+            {
+                return ReadInteger("AutoJoinSavedChannels", 0) != 0;
+            }
+            set
+            {
+                WriteInteger("AutoJoinSavedChannels", value ? 1 : 0);
             }
         }
     }

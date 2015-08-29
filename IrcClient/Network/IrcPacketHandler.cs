@@ -78,7 +78,9 @@ namespace IrcClient.Network
             var x_data = pid.Content;
             int pos;
 
-            if ((pos = x_data.IndexOf(" = ")) == -1)
+            if ((pos = x_data.IndexOf(" = ")) == -1 && // '=' is public channel
+                (pos = x_data.IndexOf(" * ")) == -1 && // '*' is private channel
+                (pos = x_data.IndexOf(" @ ")) == -1)   // '@' is secret channel
                 throw new Exception("Malformed userlist received");
 
             x_data = x_data.Substring(pos + 3); // #test :Hello Test2 Nice
