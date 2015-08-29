@@ -6,6 +6,7 @@ It doesn't support multiple IRC servers, it's primary intention is to use with o
 
 The *nick*, *server address* and *port* are retrieved from the registry.
 Configuration for automatically joining channels are also defined in the registry.
-See the wiki INSERT_LINK for configurating for first run.
+
+[See the wiki here for configurating for first run](https://bitbucket.org/funkynicco/wpf-irc-client/wiki/Configuration)
 
 ![irc.png](https://bitbucket.org/repo/RpKan9/images/794983239-irc.png)
