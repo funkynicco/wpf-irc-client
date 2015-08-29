@@ -110,7 +110,7 @@
                     <TabItem Header="#arduino" />-->
                 </TabControl>
                 
-                <TextBox Grid.Row="1" Margin="0 5 0 0" Background="#252525" Foreground="#b9b9b9" />
+                <TextBox x:Name="txtChatMessage" Grid.Row="1" Margin="0 5 0 0" Background="#252525" Foreground="#b9b9b9" />
             </Grid>
         </Grid>
     </Grid>

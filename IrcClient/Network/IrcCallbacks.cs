@@ -8,6 +8,8 @@ using System.Threading.Tasks;
 
 namespace IrcClient.Network
 {
+    public delegate void ConnectedToServerEvent();
+
     public delegate void MeJoinedChannelEvent(IrcChannel channel);
     public delegate void MeLeftChannelEvent(IrcChannel channel);
 

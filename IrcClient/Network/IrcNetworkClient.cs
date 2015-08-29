@@ -13,12 +13,17 @@ namespace IrcClient.Network
         private readonly StringBuilder _buffer = new StringBuilder(1024);
         private readonly Dictionary<string, MethodInfo> _packetMethods = new Dictionary<string, MethodInfo>();
 
-        public const string MyNick = "YoBot";
+        private readonly string _myNick;
+        public string MyNick { get { return _myNick; } }
 
         private readonly ChannelManager _channelManager = new ChannelManager();
+        public ChannelManager Channels { get { return _channelManager; } }
 
-        public IrcNetworkClient()
+        public IrcNetworkClient(string myNick)
         {
+            if (string.IsNullOrWhiteSpace(_myNick = myNick))
+                throw new ArgumentException("Client nick name cannot be empty.");
+
             foreach (var mi in GetType().GetMethods(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public))
             {
                 var attribute = mi.GetCustomAttribute<PacketAttribute>();

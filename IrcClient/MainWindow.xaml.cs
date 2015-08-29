@@ -23,17 +23,11 @@ namespace IrcClient
     /// </summary>
     public partial class MainWindow : Window
     {
-        private readonly IrcNetworkClient _client = new IrcNetworkClient();
+        private readonly IrcNetworkClient _client = new IrcNetworkClient("Phoenix");
 
         public MainWindow()
         {
             InitializeComponent();
-
-            var dt = DateTime.Now;
-            AddChatMessage((dt = dt.AddSeconds(5)), "Nicco", "abc", true);
-            AddChatMessage((dt = dt.AddSeconds(5)), "John", "123", true);
-            AddChatMessage((dt = dt.AddSeconds(5)), "Nicco", "nope", true);
-            AddChatMessage((dt = dt.AddSeconds(5)), "John", "ok", true);
 
             RegisterIrcEvents();
 
@@ -48,14 +42,93 @@ namespace IrcClient
                             (_sender as DispatcherTimer).IsEnabled = true;
                         };
             };
+
+            ui_TabControl.SelectionChanged += Ui_TabControl_SelectionChanged;
+
+            txtChatMessage.KeyDown += (sender, e) =>
+                {
+                    if (e.Key == Key.Enter)
+                    {
+                        var command = txtChatMessage.Text;
+                        txtChatMessage.Text = "";
+
+                        if (command.Length > 0)
+                        {
+                            if (command[0] == '/')
+                            {
+                                command = command.Substring(1);
+
+                                // command
+                                var content = string.Empty;
+                                int pos;
+                                if ((pos = command.IndexOf(' ')) != -1)
+                                {
+                                    content = command.Substring(pos + 1);
+                                    command = command.Substring(0, pos);
+                                }
+
+                                OnClientCommand(command.ToLower(), content);
+                            }
+                            else
+                            {
+                                var channel = GetSelectedChannel();
+                                if (channel != null)
+                                {
+                                    _client.SendChannelChat(channel, command);
+                                    AddChatMessage(DateTime.Now, channel, channel.GetUser(_client.MyNick), command, true);
+                                }
+                            }
+                        }
+                    }
+                };
+        }
+
+        private void Ui_TabControl_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            ui_UserList.Items.Clear();
+            var channel = GetSelectedChannel();
+            if (channel != null)
+            {
+                foreach (var user in channel)
+                {
+                    ui_UserList.Items.Add(user.Nick);
+                }
+            }
+        }
+
+        private void OnClientCommand(string command, string content)
+        {
+            if (command == "join")
+            {
+                if (content.Length == 0)
+                    return;
+
+                _client.SendJoinChannel(content);
+            }
+        }
+
+        private IrcChannel GetSelectedChannel()
+        {
+            if (ui_TabControl.SelectedItem != null)
+            {
+                var channelName = ((TabItem)ui_TabControl.SelectedItem).Header.ToString();
+
+                return _client.Channels.GetChannel(channelName);
+            }
+
+            return null;
         }
 
         private void RegisterIrcEvents()
         {
+            _client.RegisterCallback<ConnectedToServerEvent>("ConnectedToServer", () =>
+                {
+                    // we can now join channels
+                    _client.SendJoinChannel("#test");
+                });
+
             _client.RegisterCallback<MeJoinedChannelEvent>("MeJoinedChannel", (channel) =>
                 {
-                    // add channel to UI etc..
-
                     var richTextBox = new RichTextBox(new FlowDocument())
                     {
                         Background = new SolidColorBrush(Color.FromArgb(0xff, 0x25, 0x25, 0x25)),
@@ -72,8 +145,11 @@ namespace IrcClient
 
                     ui_TabControl.Items.Add(tabItem);
 
-                    ui_UserList.Items.Clear();
-                    ui_UserList.Items.Add(IrcNetworkClient.MyNick);
+                    //ui_UserList.Items.Clear();
+                    //ui_UserList.Items.Add(_client.MyNick);
+
+                    //ui_UserList.SelectedIndex = ui_UserList.Items.Count - 1;
+                    ui_TabControl.SelectedIndex = ui_TabControl.Items.Count - 1;
                 });
 
             _client.RegisterCallback<MeLeftChannelEvent>("MeLeftChannel", (channel) =>
@@ -88,39 +164,45 @@ namespace IrcClient
                         }
                     }
 
-                    // select another tab
+                    // select adjacent (next) tab
                 });
 
             _client.RegisterCallback<UserJoinedChannelEvent>("UserJoinedChannel", (channel, user) =>
                 {
+                    // TODO: check if its selected tab..
                     ui_UserList.Items.Add(user.Nick);
                 });
 
             _client.RegisterCallback<UserLeftChannelEvent>("UserLeftChannel", (channel, user) =>
                 {
+                    // TODO: check if its selected tab..
                     ui_UserList.Items.Remove(user.Nick);
                 });
 
             _client.RegisterCallback<ChannelMessageEvent>("ChannelMessage", (channel, user, message) =>
                 {
-                    AddChatMessage(DateTime.Now, user.Nick, message, true);
+                    AddChatMessage(DateTime.Now, channel, user, message, true);
                 });
         }
 
-        public void AddChatMessage(DateTime date, string sender, string message, bool addSender)
+        public void AddChatMessage(DateTime date, IrcChannel channel, IrcChannelUser user, string message, bool addSender)
         {
-            // TEMP
-            if (ui_TabControl.SelectedIndex == -1)
-                return;
+            RichTextBox chat = null;
 
-            var chat = (RichTextBox)ui_TabControl.SelectedContent;
+            foreach (var tabobj in ui_TabControl.Items)
+            {
+                if (string.Compare(((TabItem)tabobj).Header.ToString(), channel.Name) == 0)
+                {
+                    chat = (RichTextBox)((TabItem)tabobj).Content;
+                    break;
+                }
+            }
+
             var flowDocument = chat.Document;
-
-            //FlowDocument flowDocument = ui_TabControl.SelectedIndex!=-1?(FlowDocument)
 
             // #1585b5
             Brush nameColor = new SolidColorBrush(Color.FromArgb(0xff, 0x15, 0x85, 0xb5)); ;
-            if (sender == Configuration.MyNick)
+            if (AccessLevelHelper.GetNick(user.Nick) == Configuration.MyNick)
                 nameColor = new SolidColorBrush(Colors.Orange);
 
             if (flowDocument.Blocks.Count > 0)
@@ -135,7 +217,7 @@ namespace IrcClient
                     };
                     panel.Children.Add(new Rectangle()
                     {
-                        HorizontalAlignment = System.Windows.HorizontalAlignment.Stretch,
+                        HorizontalAlignment = HorizontalAlignment.Stretch,
                         Fill = new SolidColorBrush(Color.FromArgb(0xff, 70, 70, 70)),
                         Height = 1
                     });
@@ -149,15 +231,15 @@ namespace IrcClient
             }
 
             var grid = new Grid();
-            grid.ColumnDefinitions.Add(new ColumnDefinition() { Width = new GridLength(80) });
-            grid.ColumnDefinitions.Add(new ColumnDefinition() { Width = new GridLength(1, GridUnitType.Star) });
-            grid.ColumnDefinitions.Add(new ColumnDefinition() { Width = new GridLength(50) });
+            grid.ColumnDefinitions.Add(new ColumnDefinition() { Width = new GridLength(80) }); // nick
+            grid.ColumnDefinitions.Add(new ColumnDefinition() { Width = new GridLength(1, GridUnitType.Star) }); // chat message
+            grid.ColumnDefinitions.Add(new ColumnDefinition() { Width = new GridLength(50) }); // time stamp
 
             var textBlock = new TextBlock()
             {
-                Text = addSender ? sender : "",
+                Text = addSender ? AccessLevelHelper.GetNick(user.Nick) : "",
                 FontWeight = FontWeights.Bold,
-                HorizontalAlignment = System.Windows.HorizontalAlignment.Right,
+                HorizontalAlignment = HorizontalAlignment.Right,
                 Margin = new Thickness(0, 0, 10, 0),
                 TextWrapping = TextWrapping.Wrap
             };
@@ -173,7 +255,7 @@ namespace IrcClient
             textBlock = new TextBlock()
             {
                 Text = date.ToString("HH:mm:ss"),
-                HorizontalAlignment = System.Windows.HorizontalAlignment.Right,
+                HorizontalAlignment = HorizontalAlignment.Right,
                 TextWrapping = TextWrapping.Wrap
             };
             Grid.SetColumn(textBlock, 2);

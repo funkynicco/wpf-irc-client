@@ -13,7 +13,8 @@ namespace IrcClient.Network
         [Packet("001")]
         private void On001(PacketInvocationData pid)
         {
-            Send("JOIN #test\r\n");
+            //Send("JOIN #test\r\n");
+            InvokeCallback("ConnectedToServer");
         }
 
         [Packet("PING")]

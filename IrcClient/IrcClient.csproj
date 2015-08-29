@@ -74,6 +74,7 @@
   <ItemGroup>
     <Compile Include="Network\IClient.cs" />
     <Compile Include="Network\IrcCallbacks.cs" />
+    <Compile Include="Network\IrcClientPackets.cs" />
     <Compile Include="Network\IrcNetworkClient.cs" />
     <Compile Include="Network\IrcPacketHandler.cs" />
     <Compile Include="Network\NetworkClientBase.cs" />
