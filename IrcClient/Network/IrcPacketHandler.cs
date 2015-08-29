@@ -95,6 +95,8 @@ namespace IrcClient.Network
                 throw new Exception("Unknown channel in 353 packet: " + channelName);
 
             x_data = x_data.Substring(pos + 2);
+            if (!x_data.EndsWith(" ")) // otherwise we dont get the last name ...
+                x_data = x_data + ' ';
             while ((pos = x_data.IndexOf(' ')) != -1)
             {
                 var rawnick = x_data.Substring(0, pos);
